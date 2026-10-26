@@ -224,6 +224,36 @@ th {
   display: block;
 }
 
+.test-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+}
+
+.test-list li {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.test-list .title {
+  font-weight: 650;
+}
+
+.pass .title {
+  color: var(--accent);
+}
+
+.fail .title {
+  color: var(--warn);
+}
+
+.test-list p {
+  margin: 6px 0 0;
+}
+
 @media (max-width: 720px) {
   header,
   main {
