@@ -87,6 +87,55 @@ section {
   font-size: 0.92rem;
 }
 
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  border: 1.5px dashed #b7c9c1;
+  background: var(--accent-soft);
+  border-radius: 12px;
+  padding: 28px 16px;
+  text-align: center;
+}
+
+.dropzone strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.dropzone.dragover {
+  border-color: var(--accent);
+  background: #d7efe6;
+}
+
+.file-name {
+  margin: 12px 0 0;
+}
+
+.file-name:empty {
+  display: none;
+}
+
+.file-btn {
+  display: inline-block;
+  margin-top: 12px;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 999px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.file-btn input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
 .summary {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

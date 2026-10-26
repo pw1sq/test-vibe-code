@@ -13,6 +13,23 @@
   </header>
 
   <main>
+    <section aria-labelledby="upload-title">
+      <div class="section-head">
+        <h2 id="upload-title">Данные</h2>
+        <p class="hint">CSV с заголовком в первой строке</p>
+      </div>
+      <div class="dropzone" id="dropzone">
+        <strong>Перетащите файл сюда</strong>
+        <span class="hint">или выберите его на диске</span>
+        <label class="file-btn">
+          Выбрать CSV
+          <input id="file-input" type="file" accept=".csv,text/csv">
+        </label>
+      </div>
+      <p id="file-name" class="file-name hint"></p>
+      <p id="error" class="error" role="alert"></p>
+    </section>
+
     <section aria-labelledby="overview-title">
       <div class="section-head">
         <h2 id="overview-title">Обзор</h2>
