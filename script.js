@@ -148,6 +148,9 @@ function fail(message) {
 }
 
 function setMessage(message) {
+  if (!ui.error) {
+    return;
+  }
   ui.error.textContent = message || "";
   ui.error.classList.toggle("visible", Boolean(message));
 }
@@ -263,16 +266,38 @@ function detectDelimiter(text) {
 
 function firstLine(text) {
   let line = "";
+  let fieldEmpty = true;
   let inQuotes = false;
   for (let i = 0; i < text.length; i += 1) {
     const char = text[i];
-    if (char === '"') {
-      inQuotes = !inQuotes;
+    if (inQuotes) {
+      line += char;
+      if (char === '"') {
+        if (text[i + 1] === '"') {
+          line += '"';
+          i += 1;
+          fieldEmpty = false;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        fieldEmpty = false;
+      }
+      continue;
     }
-    if (!inQuotes && (char === "\n" || char === "\r")) {
+    if (char === "\n" || char === "\r") {
       break;
     }
     line += char;
+    if (char === '"' && fieldEmpty) {
+      inQuotes = true;
+      continue;
+    }
+    if (char === "," || char === ";" || char === "\t") {
+      fieldEmpty = true;
+      continue;
+    }
+    fieldEmpty = false;
   }
   return line;
 }
@@ -345,12 +370,15 @@ function isMissing(value) {
   return trimmed === "" || MISSING_VALUE.test(trimmed);
 }
 
-function isNumber(value) {
+function normalizeNumber(value) {
   const compact = value.trim().replace(/\s/g, "");
-  const normalized = compact.includes(",") && !compact.includes(".")
+  return compact.includes(",") && !compact.includes(".")
     ? compact.replace(",", ".")
     : compact;
-  return /^[+-]?(?:\d+(?:\.\d+)?|\.\d+)$/.test(normalized);
+}
+
+function isNumber(value) {
+  return /^[+-]?(?:\d+(?:\.\d+)?|\.\d+)$/.test(normalizeNumber(value));
 }
 
 function parseDate(value) {
@@ -376,11 +404,7 @@ function isDate(value) {
 }
 
 function parseNumber(value) {
-  const compact = value.trim().replace(/\s/g, "");
-  const normalized = compact.includes(",") && !compact.includes(".")
-    ? compact.replace(",", ".")
-    : compact;
-  return Number(normalized);
+  return Number(normalizeNumber(value));
 }
 
 function formatBinEdge(value, width) {
@@ -891,10 +915,6 @@ function renderBar() {
   options.indexAxis = "y";
   options.scales.y.ticks.callback = function shortenTick(value) {
     return shortenLabel(this.getLabelForValue(value), BAR_LABEL_LIMIT);
-  };
-  options.scales.y.afterFit = (scale) => {
-    // Названия прижаты к правому краю шкалы и заходят на вертикальную подпись оси. Сдвиг вправо оставляет ей место.
-    scale.width += 28;
   };
   // Подпись оси рисуется слева от названий. Без запаса длинные подписи заходят на неё.
   options.scales.y.afterFit = (scale) => {
