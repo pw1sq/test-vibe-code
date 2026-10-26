@@ -17,6 +17,7 @@ const ui = {
   columnList: document.querySelector("#column-list"),
   previewHead: document.querySelector("#preview-head"),
   previewBody: document.querySelector("#preview-body"),
+  stats: document.querySelector("#stats"),
 };
 
 if (ui.fileInput && ui.dropzone) {
@@ -339,6 +340,89 @@ function isDate(value) {
   return parseDate(value) !== null;
 }
 
+function parseNumber(value) {
+  const compact = value.trim().replace(/\s/g, "");
+  const normalized = compact.includes(",") && !compact.includes(".")
+    ? compact.replace(",", ".")
+    : compact;
+  return Number(normalized);
+}
+
+function formatNumber(value) {
+  if (value === null || !Number.isFinite(value)) {
+    return "—";
+  }
+  const rounded = Math.round((value + Number.EPSILON) * 100) / 100;
+  return String(rounded);
+}
+
+function summarizeColumn(column) {
+  if (column.type === "number") {
+    return { kind: "number", ...numericSummary(column.values) };
+  }
+  if (column.type === "date") {
+    return { kind: "date", ...dateSummary(column.values) };
+  }
+  return { kind: "categorical", ...categoricalSummary(column.values) };
+}
+
+function numericSummary(values) {
+  const present = values.filter((value) => !isMissing(value)).map(parseNumber);
+  const missing = values.length - present.length;
+  if (present.length === 0) {
+    return { missing, mean: null, median: null, min: null, max: null, stdev: null };
+  }
+  const sorted = [...present].sort((left, right) => left - right);
+  const mean = present.reduce((sum, value) => sum + value, 0) / present.length;
+  const mid = Math.floor(sorted.length / 2);
+  const median = sorted.length % 2 === 1
+    ? sorted[mid]
+    : (sorted[mid - 1] + sorted[mid]) / 2;
+  // Для одной цифры отклонение не определено. Для остальных — выборочное, со знаменателем n − 1.
+  const stdev = present.length > 1
+    ? Math.sqrt(present.reduce((sum, value) => sum + (value - mean) ** 2, 0) / (present.length - 1))
+    : null;
+  return { missing, mean, median, min: sorted[0], max: sorted[sorted.length - 1], stdev };
+}
+
+function categoricalSummary(values, limit = 5) {
+  const counts = new Map();
+  let missing = 0;
+  values.forEach((value) => {
+    if (isMissing(value)) {
+      missing += 1;
+      return;
+    }
+    counts.set(value, (counts.get(value) || 0) + 1);
+  });
+  const top = [...counts.entries()]
+    .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0], "ru"))
+    .slice(0, limit);
+  return { missing, unique: counts.size, top };
+}
+
+function dateSummary(values) {
+  const present = [];
+  let missing = 0;
+  values.forEach((value) => {
+    if (isMissing(value)) {
+      missing += 1;
+      return;
+    }
+    const parsed = parseDate(value);
+    if (parsed) {
+      present.push(parsed);
+    }
+  });
+  present.sort((left, right) => left.time - right.time || left.text.localeCompare(right.text, "ru"));
+  return {
+    missing,
+    unique: new Set(present.map((item) => item.text)).size,
+    min: present.length ? present[0].text : null,
+    max: present.length ? present[present.length - 1].text : null,
+  };
+}
+
 function warningsFor(dataset) {
   const notes = [];
   const numeric = dataset.columns.filter((column) => column.type === "number");
@@ -388,6 +472,98 @@ function render(dataset) {
     body.append(tr);
   });
   ui.previewBody.replaceChildren(body);
+  renderStats(dataset);
+}
+
+function renderStats(dataset) {
+  if (!ui.stats) {
+    return;
+  }
+  const fragment = document.createDocumentFragment();
+  appendStatGroup(fragment, "Числовые столбцы", dataset.columns.filter((column) => column.type === "number"));
+  appendStatGroup(fragment, "Категориальные столбцы", dataset.columns.filter((column) => column.type === "categorical"));
+  appendStatGroup(fragment, "Даты", dataset.columns.filter((column) => column.type === "date"));
+  ui.stats.replaceChildren(fragment);
+}
+
+function appendStatGroup(fragment, title, columns) {
+  if (columns.length === 0) {
+    return;
+  }
+  const heading = document.createElement("h3");
+  heading.className = "stats-group";
+  heading.textContent = title;
+  fragment.append(heading);
+  columns.forEach((column) => fragment.append(statCard(column)));
+}
+
+function statCard(column) {
+  const card = document.createElement("article");
+  const title = document.createElement("h3");
+  title.textContent = column.name;
+  const pill = document.createElement("span");
+  pill.className = "pill";
+  pill.textContent = TYPE_LABELS[column.type];
+  title.append(pill);
+  card.append(title);
+
+  const summary = summarizeColumn(column);
+  if (summary.kind === "number") {
+    card.append(metricList([
+      ["Среднее", formatNumber(summary.mean)],
+      ["Медиана", formatNumber(summary.median)],
+      ["Минимум", formatNumber(summary.min)],
+      ["Максимум", formatNumber(summary.max)],
+      ["Стандартное отклонение", formatNumber(summary.stdev)],
+      ["Пропуски", String(summary.missing)],
+    ]));
+    return card;
+  }
+
+  if (summary.kind === "date") {
+    card.append(metricList([
+      ["Уникальных", String(summary.unique)],
+      ["Минимум", summary.min || "—"],
+      ["Максимум", summary.max || "—"],
+      ["Пропуски", String(summary.missing)],
+    ]));
+    return card;
+  }
+
+  card.append(metricList([
+    ["Уникальных", String(summary.unique)],
+    ["Пропуски", String(summary.missing)],
+  ]));
+  const list = document.createElement("ol");
+  list.className = "top-list";
+  if (summary.top.length === 0) {
+    const item = document.createElement("li");
+    item.textContent = "Нет значений";
+    list.append(item);
+  } else {
+    summary.top.forEach(([value, count]) => {
+      const item = document.createElement("li");
+      item.textContent = `${value} — ${count}`;
+      list.append(item);
+    });
+  }
+  card.append(list);
+  return card;
+}
+
+function metricList(rows) {
+  const list = document.createElement("dl");
+  rows.forEach(([name, value]) => {
+    const row = document.createElement("div");
+    row.className = "metric";
+    const term = document.createElement("dt");
+    term.textContent = name;
+    const detail = document.createElement("dd");
+    detail.textContent = value;
+    row.append(term, detail);
+    list.append(row);
+  });
+  return list;
 }
 
 function clearView() {
@@ -408,6 +584,18 @@ function clearView() {
   emptyCell.textContent = "Таблица пуста, пока не выбран файл.";
   emptyRow.append(emptyCell);
   ui.previewBody.replaceChildren(emptyRow);
+  resetStats();
+}
+
+function resetStats() {
+  if (!ui.stats) {
+    return;
+  }
+  const empty = document.createElement("article");
+  empty.className = "empty";
+  empty.textContent = "Числовые и категориальные сводки появятся после загрузки.";
+  ui.stats.replaceChildren(empty);
 }
 
 window.inspectCsvBytes = inspectCsvBytes;
+window.summarizeColumn = summarizeColumn;

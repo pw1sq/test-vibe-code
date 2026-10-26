@@ -35,6 +35,16 @@ const cases = [
       if (actual !== expected) {
         problems.push(`типы «${actual}», ожидалось «${expected}»`);
       }
+      problems.push(...expectNumberSummary(result, "Цена", {
+        mean: 336.99,
+        median: 199.99,
+        min: 14.99,
+        max: 1299.99,
+        stdev: 375.53,
+        missing: 0,
+      }));
+      problems.push(...expectCategory(result, "Категория", 5, ["Электроника — 6"]));
+      problems.push(...expectDate(result, "Дата продажи", "2023-01-15", "2023-02-04"));
       return problems;
     },
   },
@@ -76,6 +86,21 @@ const cases = [
       if (result.warnings) {
         problems.push(result.warnings);
       }
+      problems.push(...expectNumberSummary(result, "Цена", {
+        mean: 514.99,
+        median: 514.99,
+        min: 129.99,
+        max: 899.99,
+        missing: 1,
+      }));
+      problems.push(...expectNumberSummary(result, "Рейтинг", {
+        mean: 4.5,
+        median: 4.5,
+        min: 4.5,
+        max: 4.5,
+        stdev: null,
+        missing: 2,
+      }));
       return problems;
     },
   },
@@ -175,10 +200,13 @@ const cases = [
       if (result.dataset.rows[1][0] !== "Париж") {
         problems.push(`город «${result.dataset.rows[1][0]}», ожидалось «Париж»`);
       }
-      const population = result.dataset.columns.find((column) => column.name === "Жители");
-      if (!population || population.type !== "number") {
-        problems.push("столбец «Жители» должен быть числовым");
-      }
+      problems.push(...expectNumberSummary(result, "Жители", {
+        mean: 150.25,
+        median: 150.25,
+        min: 100,
+        max: 200.5,
+        missing: 0,
+      }));
       return problems;
     },
   },
@@ -240,6 +268,60 @@ async function runCase(item) {
   } catch (error) {
     return { ok: false, details: [error instanceof Error ? error.message : "Не удалось выполнить проверку."] };
   }
+}
+
+function expectNumberSummary(result, name, expected) {
+  const column = result.dataset.columns.find((item) => item.name === name);
+  if (!column) {
+    return [`нет столбца «${name}»`];
+  }
+  const summary = window.summarizeColumn(column);
+  return ["mean", "median", "min", "max", "stdev", "missing"].flatMap((key) => {
+    if (!Object.prototype.hasOwnProperty.call(expected, key)) {
+      return [];
+    }
+    const actual = key === "missing" ? summary.missing : round2(summary[key]);
+    if (actual !== expected[key]) {
+      return [`«${name}» ${key}: ${summary[key]}, ожидалось ${expected[key]}`];
+    }
+    return [];
+  });
+}
+
+function expectCategory(result, name, unique, topStarts) {
+  const column = result.dataset.columns.find((item) => item.name === name);
+  const summary = window.summarizeColumn(column);
+  const problems = [];
+  if (summary.unique !== unique) {
+    problems.push(`«${name}»: уникальных ${summary.unique}, ожидалось ${unique}`);
+  }
+  const labels = summary.top.map(([value, count]) => `${value} — ${count}`);
+  topStarts.forEach((label, index) => {
+    if (labels[index] !== label) {
+      problems.push(`«${name}»: на месте ${index + 1} «${labels[index] || "пусто"}», ожидалось «${label}»`);
+    }
+  });
+  return problems;
+}
+
+function expectDate(result, name, min, max) {
+  const column = result.dataset.columns.find((item) => item.name === name);
+  const summary = window.summarizeColumn(column);
+  const problems = [];
+  if (summary.min !== min) {
+    problems.push(`«${name}»: минимум ${summary.min}, ожидалось ${min}`);
+  }
+  if (summary.max !== max) {
+    problems.push(`«${name}»: максимум ${summary.max}, ожидалось ${max}`);
+  }
+  return problems;
+}
+
+function round2(value) {
+  if (value === null || !Number.isFinite(value)) {
+    return null;
+  }
+  return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
 function renderCase(item, outcome) {

@@ -211,6 +211,50 @@ th {
   font-weight: 650;
 }
 
+.stats {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.stats-group {
+  grid-column: 1 / -1;
+  margin: 8px 0 0;
+  font-size: 1rem;
+}
+
+.stats h3 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+
+.metric {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0;
+  padding: 3px 0;
+}
+
+.metric dt {
+  color: var(--muted);
+}
+
+.metric dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.top-list {
+  margin: 8px 0 0;
+  padding-left: 1.2rem;
+}
+
+article {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+  min-height: 120px;
+}
+
 .error {
   display: none;
   margin-top: 12px;
