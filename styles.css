@@ -395,6 +395,9 @@ article,
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 12px;
+}
+
+article {
   min-height: 120px;
 }
 
