@@ -18,8 +18,8 @@ const cases = [
       if (!result.ok) {
         return [result.error || "файл не разобран"];
       }
-      if (result.rows !== 20) {
-        problems.push(`строк ${result.rows}, ожидалось 20`);
+      if (result.rows !== 100) {
+        problems.push(`строк ${result.rows}, ожидалось 100`);
       }
       if (result.columns !== 8) {
         problems.push(`столбцов ${result.columns}, ожидалось 8`);
@@ -36,20 +36,20 @@ const cases = [
         problems.push(`типы «${actual}», ожидалось «${expected}»`);
       }
       problems.push(...expectNumberSummary(result, "Цена", {
-        mean: 336.99,
-        median: 199.99,
+        mean: 179.33,
+        median: 64.99,
         min: 14.99,
         max: 1299.99,
-        stdev: 375.53,
+        stdev: 272.99,
         missing: 0,
       }));
-      problems.push(...expectCategory(result, "Категория", 5, ["Электроника — 6"]));
-      problems.push(...expectDate(result, "Дата продажи", "2023-01-15", "2023-02-04"));
+      problems.push(...expectCategory(result, "Категория", 5, ["Электроника — 22"]));
+      problems.push(...expectDate(result, "Дата продажи", "2023-01-15", "2023-04-25"));
       const priceColumn = result.dataset.columns.find((column) => column.name === "Цена");
       const bins = window.histogramBins(priceColumn.values);
       const binTotal = bins.counts.reduce((sum, count) => sum + count, 0);
       const lastLabel = bins.labels[bins.labels.length - 1] || "";
-      if (binTotal !== 20 || !bins.labels[0].startsWith("15") || !lastLabel.endsWith("1300")) {
+      if (binTotal !== 100 || !bins.labels[0].startsWith("15") || !lastLabel.endsWith("1300")) {
         problems.push(`гистограмма цены: ${bins.labels.join(", ")} / ${binTotal}`);
       }
       return problems;
