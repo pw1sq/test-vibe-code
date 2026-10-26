@@ -28,6 +28,10 @@ const ui = {
   histCanvas: document.querySelector("#hist-chart"),
   barCanvas: document.querySelector("#bar-chart"),
   scatterCanvas: document.querySelector("#scatter-chart"),
+  filters: document.querySelector("#filters"),
+  filterColumn: document.querySelector("#filter-column"),
+  filterValue: document.querySelector("#filter-value"),
+  filterNote: document.querySelector("#filter-note"),
 };
 
 if (ui.fileInput && ui.dropzone) {
@@ -76,6 +80,14 @@ if (ui.histColumn && ui.barColumn && ui.scatterX && ui.scatterY) {
   ui.scatterY.addEventListener("change", () => renderScatter());
 }
 
+if (ui.filterColumn && ui.filterValue) {
+  ui.filterColumn.addEventListener("change", () => {
+    fillFilterValues();
+    applyFilter();
+  });
+  ui.filterValue.addEventListener("change", () => applyFilter());
+}
+
 if (typeof Chart !== "undefined") {
   Chart.defaults.font.family = '"Segoe UI", system-ui, sans-serif';
   Chart.defaults.color = "#5c564c";
@@ -97,6 +109,7 @@ function readFile(file) {
     render(result.dataset);
     ui.fileName.textContent = `Загружен файл: ${file.name}`;
     setMessage(result.warnings);
+    setupFilter(result.dataset);
   };
   reader.onerror = () => fail("Не удалось прочитать файл.");
   reader.readAsArrayBuffer(file);
@@ -514,6 +527,87 @@ function render(dataset, options = {}) {
   renderCharts(dataset, options.resetCharts !== false);
 }
 
+function setupFilter(dataset) {
+  sourceDataset = dataset;
+  if (!ui.filterColumn) {
+    return;
+  }
+  const categories = dataset.columns.filter((column) => column.type === "categorical");
+  ui.filters.hidden = categories.length === 0;
+  ui.filterNote.textContent = "";
+  ui.filterColumn.replaceChildren(filterOption("", "Все строки"));
+  categories.forEach((column) => {
+    ui.filterColumn.append(filterOption(column.name, column.name));
+  });
+  ui.filterColumn.disabled = categories.length === 0;
+  fillFilterValues();
+}
+
+function fillFilterValues() {
+  if (!ui.filterValue) {
+    return;
+  }
+  const columnName = ui.filterColumn.value;
+  ui.filterValue.replaceChildren(filterOption("", "Все значения"));
+  if (!sourceDataset || !columnName) {
+    ui.filterValue.disabled = true;
+    return;
+  }
+  const column = sourceDataset.columns.find((item) => item.name === columnName);
+  const values = [...new Set(column.values.filter((value) => !isMissing(value)))]
+    .sort((left, right) => left.localeCompare(right, "ru"));
+  values.forEach((value) => ui.filterValue.append(filterOption(value, value)));
+  ui.filterValue.disabled = false;
+}
+
+function applyFilter() {
+  if (!sourceDataset) {
+    return;
+  }
+  const view = filteredDataset();
+  if (ui.filterNote) {
+    const active = ui.filterColumn.value && ui.filterValue.value;
+    if (!active) {
+      ui.filterNote.textContent = "";
+    } else if (view.rows.length === 0) {
+      ui.filterNote.textContent = "Нет строк с таким значением.";
+    } else {
+      ui.filterNote.textContent = `Показано ${view.rows.length} из ${sourceDataset.rows.length} строк.`;
+    }
+  }
+  render(view, { resetCharts: false });
+}
+
+function filteredDataset() {
+  const columnName = ui.filterColumn && ui.filterColumn.value;
+  const selected = ui.filterValue && ui.filterValue.value;
+  if (!columnName || !selected) {
+    return sourceDataset;
+  }
+  const index = sourceDataset.columns.findIndex((column) => column.name === columnName);
+  const rows = sourceDataset.rows.filter((row) => row[index] === selected);
+  const columns = sourceDataset.columns.map((column, columnIndex) => {
+    const values = rows.map((row) => row[columnIndex]);
+    return {
+      ...column,
+      values,
+      missing: values.filter(isMissing).length,
+    };
+  });
+  return {
+    columns,
+    rows,
+    missing: columns.reduce((sum, column) => sum + column.missing, 0),
+  };
+}
+
+function filterOption(value, label) {
+  const option = document.createElement("option");
+  option.value = value;
+  option.textContent = label;
+  return option;
+}
+
 function renderStats(dataset) {
   if (!ui.stats) {
     return;
@@ -625,6 +719,20 @@ function clearView() {
   ui.previewBody.replaceChildren(emptyRow);
   resetStats();
   resetCharts();
+  resetFilter();
+}
+
+function resetFilter() {
+  sourceDataset = null;
+  if (!ui.filters) {
+    return;
+  }
+  ui.filters.hidden = true;
+  ui.filterColumn.replaceChildren();
+  ui.filterValue.replaceChildren();
+  ui.filterColumn.disabled = true;
+  ui.filterValue.disabled = true;
+  ui.filterNote.textContent = "";
 }
 
 function resetStats() {
@@ -637,6 +745,7 @@ function resetStats() {
   ui.stats.replaceChildren(empty);
 }
 
+let sourceDataset = null;
 let currentDataset = null;
 const charts = { hist: null, bar: null, scatter: null };
 const BAR_LIMIT = 12;

@@ -117,6 +117,25 @@ section {
   display: none;
 }
 
+.filters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.filters[hidden] {
+  display: none;
+}
+
+#filter-note {
+  margin: 10px 0 0;
+}
+
+#filter-note:empty {
+  display: none;
+}
+
 .file-btn {
   display: inline-block;
   margin-top: 12px;
@@ -342,7 +361,8 @@ select {
 
       .summary,
       .stats,
-      .charts {
+      .charts,
+      .filters {
         grid-template-columns: 1fr;
       }
 
