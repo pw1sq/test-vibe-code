@@ -55,6 +55,51 @@ body {
   line-height: 1.45;
 }
 
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.paper,
+.sky {
+  position: absolute;
+  inset: 0;
+}
+
+.paper {
+  background-image: url("img/paper.svg");
+  background-size: 200px 200px;
+  mix-blend-mode: multiply;
+  opacity: 0.7;
+  filter: blur(0.8px);
+}
+
+[data-theme="dark"] .paper {
+  filter: invert(1) blur(0.8px);
+  mix-blend-mode: screen;
+  opacity: 0.42;
+}
+
+.sky {
+  background-color: var(--ink);
+  opacity: 0.5;
+  filter: blur(0.3px);
+  -webkit-mask-image: url("img/sky.svg");
+  mask-image: url("img/sky.svg");
+  -webkit-mask-size: 640px 520px;
+  mask-size: 640px 520px;
+  -webkit-mask-repeat: repeat;
+  mask-repeat: repeat;
+}
+
+body > header,
+body > main {
+  position: relative;
+  z-index: 1;
+}
+
 header,
 main {
   width: min(1100px, calc(100% - 32px));
