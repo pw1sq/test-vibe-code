@@ -45,6 +45,13 @@ const cases = [
       }));
       problems.push(...expectCategory(result, "Категория", 5, ["Электроника — 6"]));
       problems.push(...expectDate(result, "Дата продажи", "2023-01-15", "2023-02-04"));
+      const priceColumn = result.dataset.columns.find((column) => column.name === "Цена");
+      const bins = window.histogramBins(priceColumn.values);
+      const binTotal = bins.counts.reduce((sum, count) => sum + count, 0);
+      const lastLabel = bins.labels[bins.labels.length - 1] || "";
+      if (binTotal !== 20 || !bins.labels[0].startsWith("15") || !lastLabel.endsWith("1300")) {
+        problems.push(`гистограмма цены: ${bins.labels.join(", ")} / ${binTotal}`);
+      }
       return problems;
     },
   },

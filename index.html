@@ -72,11 +72,51 @@
     <section aria-labelledby="charts-title">
       <div class="section-head">
         <h2 id="charts-title">Графики</h2>
-        <p class="hint">Появятся после загрузки файла</p>
+        <p class="hint">Обновляются при смене столбца, без перезагрузки</p>
       </div>
-      <p class="empty" id="charts-placeholder">Гистограмма, столбчатая диаграмма и рассеяние появятся здесь.</p>
+      <div class="charts">
+        <div class="chart-card">
+          <label>Числовой столбец
+            <select id="hist-column" disabled>
+              <option>Нет числовых столбцов</option>
+            </select>
+          </label>
+          <p class="empty chart-message" id="hist-message">Гистограмма появится после загрузки числового столбца.</p>
+          <div class="chart-frame" hidden>
+            <canvas id="hist-chart"></canvas>
+          </div>
+        </div>
+        <div class="chart-card">
+          <label>Категориальный столбец
+            <select id="bar-column" disabled>
+              <option>Нет категориальных столбцов</option>
+            </select>
+          </label>
+          <p class="empty chart-message" id="bar-message">Столбчатая диаграмма появится после загрузки категориального столбца.</p>
+          <div class="chart-frame" hidden>
+            <canvas id="bar-chart"></canvas>
+          </div>
+        </div>
+        <div class="chart-card">
+          <label>Ось X
+            <select id="scatter-x" disabled>
+              <option>Нет числовых столбцов</option>
+            </select>
+          </label>
+          <label>Ось Y
+            <select id="scatter-y" disabled>
+              <option>Нет числовых столбцов</option>
+            </select>
+          </label>
+          <p class="empty chart-message" id="scatter-message">Диаграмма рассеяния появится после загрузки числовых столбцов.</p>
+          <div class="chart-frame" hidden>
+            <canvas id="scatter-chart"></canvas>
+          </div>
+        </div>
+      </div>
     </section>
   </main>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

@@ -18,6 +18,16 @@ const ui = {
   previewHead: document.querySelector("#preview-head"),
   previewBody: document.querySelector("#preview-body"),
   stats: document.querySelector("#stats"),
+  histColumn: document.querySelector("#hist-column"),
+  barColumn: document.querySelector("#bar-column"),
+  scatterX: document.querySelector("#scatter-x"),
+  scatterY: document.querySelector("#scatter-y"),
+  histMessage: document.querySelector("#hist-message"),
+  barMessage: document.querySelector("#bar-message"),
+  scatterMessage: document.querySelector("#scatter-message"),
+  histCanvas: document.querySelector("#hist-chart"),
+  barCanvas: document.querySelector("#bar-chart"),
+  scatterCanvas: document.querySelector("#scatter-chart"),
 };
 
 if (ui.fileInput && ui.dropzone) {
@@ -57,6 +67,18 @@ if (ui.fileInput && ui.dropzone) {
 
   window.addEventListener("dragover", (event) => event.preventDefault());
   window.addEventListener("drop", (event) => event.preventDefault());
+}
+
+if (ui.histColumn && ui.barColumn && ui.scatterX && ui.scatterY) {
+  ui.histColumn.addEventListener("change", () => renderHistogram());
+  ui.barColumn.addEventListener("change", () => renderBar());
+  ui.scatterX.addEventListener("change", () => renderScatter());
+  ui.scatterY.addEventListener("change", () => renderScatter());
+}
+
+if (typeof Chart !== "undefined") {
+  Chart.defaults.font.family = '"Segoe UI", system-ui, sans-serif';
+  Chart.defaults.color = "#5c564c";
 }
 
 function readFile(file) {
@@ -348,6 +370,13 @@ function parseNumber(value) {
   return Number(normalized);
 }
 
+function formatBinEdge(value, width) {
+  if (width >= 10) {
+    return String(Math.round(value));
+  }
+  return formatNumber(value);
+}
+
 function formatNumber(value) {
   if (value === null || !Number.isFinite(value)) {
     return "—";
@@ -437,7 +466,7 @@ function warningsFor(dataset) {
   return notes.join(" ");
 }
 
-function render(dataset) {
+function render(dataset, options = {}) {
   ui.rowCount.textContent = String(dataset.rows.length);
   ui.colCount.textContent = String(dataset.columns.length);
   ui.missingCount.textContent = String(dataset.missing);
@@ -461,18 +490,28 @@ function render(dataset) {
   });
   ui.previewHead.replaceChildren(headRow);
 
-  const body = document.createDocumentFragment();
-  dataset.rows.slice(0, 20).forEach((row) => {
-    const tr = document.createElement("tr");
-    row.forEach((value) => {
-      const cell = document.createElement("td");
-      cell.textContent = isMissing(value) ? "—" : value;
-      tr.append(cell);
+  if (dataset.rows.length === 0) {
+    const emptyRow = document.createElement("tr");
+    const emptyCell = document.createElement("td");
+    emptyCell.className = "empty";
+    emptyCell.textContent = "Нет строк с выбранным значением.";
+    emptyRow.append(emptyCell);
+    ui.previewBody.replaceChildren(emptyRow);
+  } else {
+    const body = document.createDocumentFragment();
+    dataset.rows.slice(0, 20).forEach((row) => {
+      const tr = document.createElement("tr");
+      row.forEach((value) => {
+        const cell = document.createElement("td");
+        cell.textContent = isMissing(value) ? "—" : value;
+        tr.append(cell);
+      });
+      body.append(tr);
     });
-    body.append(tr);
-  });
-  ui.previewBody.replaceChildren(body);
+    ui.previewBody.replaceChildren(body);
+  }
   renderStats(dataset);
+  renderCharts(dataset, options.resetCharts !== false);
 }
 
 function renderStats(dataset) {
@@ -585,6 +624,7 @@ function clearView() {
   emptyRow.append(emptyCell);
   ui.previewBody.replaceChildren(emptyRow);
   resetStats();
+  resetCharts();
 }
 
 function resetStats() {
@@ -597,5 +637,324 @@ function resetStats() {
   ui.stats.replaceChildren(empty);
 }
 
+let currentDataset = null;
+const charts = { hist: null, bar: null, scatter: null };
+const BAR_LIMIT = 12;
+const BAR_LABEL_LIMIT = 18;
+const CHART_COLOR = "rgba(15, 110, 86, 0.75)";
+
+function renderCharts(dataset, resetSelections) {
+  currentDataset = dataset;
+  if (!ui.histColumn) {
+    return;
+  }
+  const numbers = dataset.columns.filter((column) => column.type === "number");
+  const categories = dataset.columns.filter((column) => column.type === "categorical");
+  const previous = {
+    hist: ui.histColumn.value,
+    bar: ui.barColumn.value,
+    x: ui.scatterX.value,
+    y: ui.scatterY.value,
+  };
+  fillSelect(ui.histColumn, numbers, "Нет числовых столбцов");
+  fillSelect(ui.barColumn, categories, "Нет категориальных столбцов");
+  fillSelect(ui.scatterX, numbers, "Нет числовых столбцов");
+  fillSelect(ui.scatterY, numbers, "Нет числовых столбцов");
+  if (resetSelections) {
+    preferOption(ui.histColumn, "Цена");
+    preferOption(ui.barColumn, "Категория");
+    preferOption(ui.scatterX, "Цена");
+    preferOption(ui.scatterY, "Количество продано");
+    if (ui.scatterY.value === ui.scatterX.value && numbers.length > 1) {
+      ui.scatterY.selectedIndex = ui.scatterX.selectedIndex === 0 ? 1 : 0;
+    }
+  } else {
+    preferOption(ui.histColumn, previous.hist);
+    preferOption(ui.barColumn, previous.bar);
+    preferOption(ui.scatterX, previous.x);
+    preferOption(ui.scatterY, previous.y);
+  }
+  renderHistogram();
+  renderBar();
+  renderScatter();
+}
+
+function resetCharts() {
+  currentDataset = null;
+  destroyChart("hist");
+  destroyChart("bar");
+  destroyChart("scatter");
+  if (!ui.histColumn) {
+    return;
+  }
+  fillSelect(ui.histColumn, [], "Нет числовых столбцов");
+  fillSelect(ui.barColumn, [], "Нет категориальных столбцов");
+  fillSelect(ui.scatterX, [], "Нет числовых столбцов");
+  fillSelect(ui.scatterY, [], "Нет числовых столбцов");
+  showChartMessage(ui.histMessage, ui.histCanvas, "Гистограмма появится после загрузки числового столбца.");
+  showChartMessage(ui.barMessage, ui.barCanvas, "Столбчатая диаграмма появится после загрузки категориального столбца.");
+  showChartMessage(ui.scatterMessage, ui.scatterCanvas, "Диаграмма рассеяния появится после загрузки числовых столбцов.");
+}
+
+function fillSelect(select, columns, emptyLabel) {
+  select.replaceChildren();
+  if (columns.length === 0) {
+    const option = document.createElement("option");
+    option.textContent = emptyLabel;
+    select.append(option);
+    select.disabled = true;
+    return;
+  }
+  columns.forEach((column) => {
+    const option = document.createElement("option");
+    option.value = column.name;
+    option.textContent = column.name;
+    select.append(option);
+  });
+  select.disabled = false;
+}
+
+function preferOption(select, name) {
+  if ([...select.options].some((option) => option.value === name)) {
+    select.value = name;
+  }
+}
+
+function renderHistogram() {
+  if (!ui.histCanvas) {
+    return;
+  }
+  const column = currentDataset && columnByName(ui.histColumn.value);
+  if (!column || ui.histColumn.disabled) {
+    destroyChart("hist");
+    showChartMessage(ui.histMessage, ui.histCanvas, "Нет числового столбца для гистограммы.");
+    return;
+  }
+  const bins = histogramBins(column.values);
+  if (bins.counts.length === 0) {
+    destroyChart("hist");
+    showChartMessage(ui.histMessage, ui.histCanvas, "В столбце нет числовых значений.");
+    return;
+  }
+  if (!showChartCanvas(ui.histMessage, ui.histCanvas)) {
+    return;
+  }
+  const histogram = chartOptions(`Распределение: ${column.name}`, column.name, "Количество", "y");
+  histogram.scales.x.ticks = { maxRotation: 0, autoSkip: true, maxTicksLimit: 6 };
+  mountChart("hist", ui.histCanvas, {
+    type: "bar",
+    data: {
+      labels: bins.labels,
+      datasets: [{
+        data: bins.counts,
+        backgroundColor: CHART_COLOR,
+        borderColor: "#0f6e56",
+        borderWidth: 1,
+      }],
+    },
+    options: histogram,
+  });
+}
+
+function renderBar() {
+  if (!ui.barCanvas) {
+    return;
+  }
+  const column = currentDataset && columnByName(ui.barColumn.value);
+  if (!column || ui.barColumn.disabled) {
+    destroyChart("bar");
+    showChartMessage(ui.barMessage, ui.barCanvas, "Нет категориального столбца для диаграммы.");
+    return;
+  }
+  const summary = categoricalSummary(column.values, BAR_LIMIT);
+  if (summary.top.length === 0) {
+    destroyChart("bar");
+    showChartMessage(ui.barMessage, ui.barCanvas, "В столбце нет значений.");
+    return;
+  }
+  if (!showChartCanvas(ui.barMessage, ui.barCanvas)) {
+    return;
+  }
+  const title = summary.unique > summary.top.length
+    ? `Частоты: ${column.name} (топ-${summary.top.length} из ${summary.unique})`
+    : `Частоты: ${column.name}`;
+  const options = chartOptions(title, "Количество", column.name, "x");
+  options.indexAxis = "y";
+  options.scales.y.ticks.callback = function shortenTick(value) {
+    return shortenLabel(this.getLabelForValue(value), BAR_LABEL_LIMIT);
+  };
+  options.scales.y.afterFit = (scale) => {
+    // Названия прижаты к правому краю шкалы и заходят на вертикальную подпись оси. Сдвиг вправо оставляет ей место.
+    scale.width += 28;
+  };
+  // Подпись оси рисуется слева от названий. Без запаса длинные подписи заходят на неё.
+  options.scales.y.afterFit = (scale) => {
+    scale.width += 28;
+  };
+  options.plugins.tooltip = {
+    callbacks: {
+      title(items) {
+        return items[0] ? items[0].label : "";
+      },
+      label(item) {
+        return `Количество: ${item.parsed.x}`;
+      },
+    },
+  };
+  mountChart("bar", ui.barCanvas, {
+    type: "bar",
+    data: {
+      labels: summary.top.map(([value]) => value),
+      datasets: [{
+        data: summary.top.map(([, count]) => count),
+        backgroundColor: CHART_COLOR,
+        borderColor: "#0f6e56",
+        borderWidth: 1,
+      }],
+    },
+    options,
+  });
+}
+
+function shortenLabel(text, limit) {
+  const value = String(text);
+  if (value.length <= limit) {
+    return value;
+  }
+  return `${value.slice(0, limit).trimEnd()}…`;
+}
+
+function renderScatter() {
+  if (!ui.scatterCanvas) {
+    return;
+  }
+  const xColumn = currentDataset && columnByName(ui.scatterX.value);
+  const yColumn = currentDataset && columnByName(ui.scatterY.value);
+  if (!xColumn || !yColumn || ui.scatterX.disabled) {
+    destroyChart("scatter");
+    showChartMessage(ui.scatterMessage, ui.scatterCanvas, "Нет числовых столбцов для диаграммы рассеяния.");
+    return;
+  }
+  const xIndex = currentDataset.columns.indexOf(xColumn);
+  const yIndex = currentDataset.columns.indexOf(yColumn);
+  const points = currentDataset.rows.flatMap((row) => {
+    if (isMissing(row[xIndex]) || isMissing(row[yIndex])) {
+      return [];
+    }
+    return [{ x: parseNumber(row[xIndex]), y: parseNumber(row[yIndex]) }];
+  });
+  if (points.length === 0) {
+    destroyChart("scatter");
+    showChartMessage(ui.scatterMessage, ui.scatterCanvas, "Нет пар чисел для диаграммы рассеяния.");
+    return;
+  }
+  if (!showChartCanvas(ui.scatterMessage, ui.scatterCanvas)) {
+    return;
+  }
+  mountChart("scatter", ui.scatterCanvas, {
+    type: "scatter",
+    data: {
+      datasets: [{
+        data: points,
+        backgroundColor: CHART_COLOR,
+      }],
+    },
+    options: chartOptions(`${yColumn.name} и ${xColumn.name}`, xColumn.name, yColumn.name),
+  });
+}
+
+function chartOptions(title, xTitle, yTitle, countAxis) {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      title: {
+        display: true,
+        text: title,
+        color: "#1c1915",
+        font: { size: 14, weight: 600 },
+      },
+    },
+    scales: {
+      x: axisScale(xTitle, countAxis === "x"),
+      y: axisScale(yTitle, countAxis === "y"),
+    },
+  };
+}
+
+function axisScale(title, fromZero) {
+  return {
+    title: { display: true, text: title, color: "#1c1915" },
+    beginAtZero: fromZero,
+    ticks: fromZero ? { precision: 0 } : {},
+  };
+}
+
+function showChartMessage(message, canvas, text) {
+  if (!message || !canvas) {
+    return;
+  }
+  message.hidden = false;
+  message.textContent = text;
+  canvas.parentElement.hidden = true;
+}
+
+function showChartCanvas(message, canvas) {
+  if (typeof Chart === "undefined") {
+    showChartMessage(message, canvas, "Не удалось загрузить библиотеку графиков.");
+    return false;
+  }
+  message.hidden = true;
+  canvas.parentElement.hidden = false;
+  return true;
+}
+
+function mountChart(key, canvas, config) {
+  destroyChart(key);
+  charts[key] = new Chart(canvas, config);
+}
+
+function destroyChart(key) {
+  if (charts[key]) {
+    charts[key].destroy();
+    charts[key] = null;
+  }
+}
+
+function columnByName(name) {
+  return currentDataset.columns.find((column) => column.name === name);
+}
+
+// Chart.js не рисует гистограмму сам: интервалы считаются здесь и показываются столбцами.
+function histogramBins(values) {
+  const numbers = values.filter((value) => !isMissing(value)).map(parseNumber);
+  if (numbers.length === 0) {
+    return { labels: [], counts: [] };
+  }
+  const min = Math.min(...numbers);
+  const max = Math.max(...numbers);
+  if (min === max) {
+    return { labels: [formatNumber(min)], counts: [numbers.length] };
+  }
+  const binCount = Math.min(10, Math.max(4, Math.ceil(Math.log2(numbers.length)) + 1));
+  const width = (max - min) / binCount;
+  const counts = Array(binCount).fill(0);
+  numbers.forEach((value) => {
+    let index = Math.floor((value - min) / width);
+    if (index >= binCount) {
+      index = binCount - 1;
+    }
+    counts[index] += 1;
+  });
+  const labels = counts.map((_, index) => {
+    const start = min + index * width;
+    const end = index === binCount - 1 ? max : min + (index + 1) * width;
+    return `${formatBinEdge(start, width)}–${formatBinEdge(end, width)}`;
+  });
+  return { labels, counts };
+}
+
 window.inspectCsvBytes = inspectCsvBytes;
 window.summarizeColumn = summarizeColumn;
+window.histogramBins = histogramBins;
