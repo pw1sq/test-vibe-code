@@ -88,10 +88,24 @@ if (ui.filterColumn && ui.filterValue) {
   ui.filterValue.addEventListener("change", () => applyFilter());
 }
 
-if (typeof Chart !== "undefined") {
-  Chart.defaults.font.family = '"Segoe UI", system-ui, sans-serif';
-  Chart.defaults.color = "#5c564c";
+const themeButton = document.querySelector("#theme-toggle");
+if (themeButton) {
+  syncThemeButton();
+  themeButton.addEventListener("click", () => {
+    const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+    document.documentElement.dataset.theme = next;
+    localStorage.setItem("theme", next);
+    syncThemeButton();
+    applyChartTheme();
+    if (currentDataset) {
+      renderHistogram();
+      renderBar();
+      renderScatter();
+    }
+  });
 }
+
+applyChartTheme();
 
 function readFile(file) {
   if (!file) {
@@ -774,7 +788,26 @@ let currentDataset = null;
 const charts = { hist: null, bar: null, scatter: null };
 const BAR_LIMIT = 12;
 const BAR_LABEL_LIMIT = 18;
-const CHART_COLOR = "rgba(15, 110, 86, 0.75)";
+function cssVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+function syncThemeButton() {
+  if (!themeButton) {
+    return;
+  }
+  const dark = document.documentElement.dataset.theme !== "light";
+  themeButton.textContent = dark ? "Светлая тема" : "Тёмная тема";
+  themeButton.setAttribute("aria-pressed", dark ? "true" : "false");
+}
+
+function applyChartTheme() {
+  if (typeof Chart === "undefined") {
+    return;
+  }
+  Chart.defaults.font.family = '"Segoe UI", system-ui, sans-serif';
+  Chart.defaults.color = cssVar("--muted");
+}
 
 function renderCharts(dataset, resetSelections) {
   currentDataset = dataset;
@@ -873,15 +906,20 @@ function renderHistogram() {
     return;
   }
   const histogram = chartOptions(`Распределение: ${column.name}`, column.name, "Количество", "y");
-  histogram.scales.x.ticks = { maxRotation: 0, autoSkip: true, maxTicksLimit: 6 };
+  histogram.scales.x.ticks = {
+    maxRotation: 0,
+    autoSkip: true,
+    maxTicksLimit: 6,
+    color: cssVar("--muted"),
+  };
   mountChart("hist", ui.histCanvas, {
     type: "bar",
     data: {
       labels: bins.labels,
       datasets: [{
         data: bins.counts,
-        backgroundColor: CHART_COLOR,
-        borderColor: "#0f6e56",
+        backgroundColor: cssVar("--chart-fill"),
+        borderColor: cssVar("--chart-border"),
         borderWidth: 1,
       }],
     },
@@ -936,8 +974,8 @@ function renderBar() {
       labels: summary.top.map(([value]) => value),
       datasets: [{
         data: summary.top.map(([, count]) => count),
-        backgroundColor: CHART_COLOR,
-        borderColor: "#0f6e56",
+        backgroundColor: cssVar("--chart-fill"),
+        borderColor: cssVar("--chart-border"),
         borderWidth: 1,
       }],
     },
@@ -985,7 +1023,7 @@ function renderScatter() {
     data: {
       datasets: [{
         data: points,
-        backgroundColor: CHART_COLOR,
+        backgroundColor: cssVar("--chart-fill"),
       }],
     },
     options: chartOptions(`${yColumn.name} и ${xColumn.name}`, xColumn.name, yColumn.name),
@@ -1001,7 +1039,7 @@ function chartOptions(title, xTitle, yTitle, countAxis) {
       title: {
         display: true,
         text: title,
-        color: "#1c1915",
+        color: cssVar("--ink"),
         font: { size: 14, weight: 600 },
       },
     },
@@ -1014,9 +1052,10 @@ function chartOptions(title, xTitle, yTitle, countAxis) {
 
 function axisScale(title, fromZero) {
   return {
-    title: { display: true, text: title, color: "#1c1915" },
+    title: { display: true, text: title, color: cssVar("--ink") },
     beginAtZero: fromZero,
-    ticks: fromZero ? { precision: 0 } : {},
+    grid: { color: cssVar("--line") },
+    ticks: fromZero ? { precision: 0, color: cssVar("--muted") } : { color: cssVar("--muted") },
   };
 }
 

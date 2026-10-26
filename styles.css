@@ -1,18 +1,45 @@
 :root {
-  --bg: #f4f1ea;
-  --surface: #fffdf8;
-  --ink: #1c1915;
-  --muted: #5c564c;
-  --line: #e4ddd0;
-  --accent: #0f6e56;
-  --accent-soft: #e5f4ef;
-  --warn: #8a4b12;
-  --warn-bg: #fff4e8;
-  --surface-muted: #f7f4ee;
-  --drop-border: #b7c9c1;
-  --drop-hover: #d7efe6;
-  --on-accent: #fff;
-  --shadow: 0 1px 2px rgba(28, 25, 21, 0.06);
+  --bg: #e8e8e8;
+  --surface: #f7f7f7;
+  --ink: #1a1a1a;
+  --muted: #5a5a5a;
+  --line: #cfcfcf;
+  --accent: #4a4a4a;
+  --accent-soft: #e4e4e4;
+  --warn: #2b2b2b;
+  --warn-bg: #dedede;
+  --surface-muted: #efefef;
+  --file-bg: #0f6e56;
+  --file-ink: #fff;
+  --file-zone: #e5f4ef;
+  --file-border: #b7c9c1;
+  --file-zone-hover: #d7efe6;
+  --chart-fill: rgba(15, 110, 86, 0.75);
+  --chart-border: #0f6e56;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --bg: #111111;
+  --surface: #1b1b1b;
+  --ink: #f2f2f2;
+  --muted: #a6a6a6;
+  --line: #3a3a3a;
+  --accent: #d4d4d4;
+  --accent-soft: #2a2a2a;
+  --warn: #eeeeee;
+  --warn-bg: #2a2a2a;
+  --surface-muted: #242424;
+  --file-bg: #3dbe9a;
+  --file-ink: #10211c;
+  --file-zone: #17332d;
+  --file-border: #3f6f62;
+  --file-zone-hover: #24443c;
+  --chart-fill: rgba(61, 190, 154, 0.8);
+  --chart-border: #3dbe9a;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  color-scheme: dark;
 }
 
 * {
@@ -36,6 +63,34 @@ main {
 
 header {
   padding: 28px 0 8px;
+}
+
+.header-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.theme-toggle {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.theme-toggle:hover {
+  border-color: var(--accent);
+}
+
+.theme-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 h1,
@@ -97,8 +152,8 @@ section {
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  border: 1.5px dashed var(--drop-border);
-  background: var(--accent-soft);
+  border: 1.5px dashed var(--file-border);
+  background: var(--file-zone);
   border-radius: 12px;
   padding: 28px 16px;
   text-align: center;
@@ -110,8 +165,8 @@ section {
 }
 
 .dropzone.dragover {
-  border-color: var(--accent);
-  background: var(--drop-hover);
+  border-color: var(--file-bg);
+  background: var(--file-zone-hover);
 }
 
 .file-name {
@@ -144,8 +199,8 @@ section {
 .file-btn {
   display: inline-block;
   margin-top: 12px;
-  background: var(--accent);
-  color: var(--on-accent);
+  background: var(--file-bg);
+  color: var(--file-ink);
   border-radius: 999px;
   padding: 8px 16px;
   cursor: pointer;
@@ -153,7 +208,7 @@ section {
 }
 
 .file-btn:focus-within {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--file-bg);
   outline-offset: 2px;
 }
 
@@ -317,6 +372,11 @@ select {
   margin: 6px 0 0;
   max-width: 100%;
   font: inherit;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 8px;
 }
 
 .error {

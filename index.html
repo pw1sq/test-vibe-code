@@ -4,11 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Web-Dashboard</title>
+  <script>
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "dark";
+  </script>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <header>
-    <h1>Web-Dashboard</h1>
+    <div class="header-bar">
+      <h1>Web-Dashboard</h1>
+      <button type="button" id="theme-toggle" class="theme-toggle">Светлая тема</button>
+    </div>
     <p class="lede">Загрузите CSV, чтобы посмотреть типы столбцов, первые строки, сводную статистику и графики. Подсчёт выполняется в браузере.</p>
   </header>
 

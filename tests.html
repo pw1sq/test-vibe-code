@@ -4,11 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Тесты CSV</title>
+  <script>
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "dark";
+  </script>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <header>
-    <h1>Тесты CSV</h1>
+    <div class="header-bar">
+      <h1>Тесты CSV</h1>
+      <button type="button" id="theme-toggle" class="theme-toggle">Светлая тема</button>
+    </div>
     <p class="lede">Проверка файлов из папки <code>csv</code> тем же разбором, что и на дашборде. <a href="index.html">Вернуться к Web-Dashboard</a></p>
   </header>
   <main>
