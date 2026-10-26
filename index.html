@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Web-Dashboard</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <h1>Web-Dashboard</h1>
+    <p class="lede">Загрузите CSV, чтобы посмотреть типы столбцов, первые строки, сводную статистику и графики. Подсчёт выполняется в браузере.</p>
+  </header>
+
+  <main>
+    <section aria-labelledby="overview-title">
+      <div class="section-head">
+        <h2 id="overview-title">Обзор</h2>
+      </div>
+      <ul class="summary">
+        <li><span>Строк</span><strong id="row-count">—</strong></li>
+        <li><span>Столбцов</span><strong id="col-count">—</strong></li>
+        <li><span>Пропусков</span><strong id="missing-count">—</strong></li>
+      </ul>
+      <h3 class="hint">Столбцы</h3>
+      <ul class="columns" id="column-list">
+        <li class="empty">Появятся после загрузки файла.</li>
+      </ul>
+    </section>
+
+    <section aria-labelledby="preview-title">
+      <div class="section-head">
+        <h2 id="preview-title">Первые 20 строк</h2>
+        <p class="hint">Широкая таблица прокручивается по горизонтали</p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead id="preview-head"></thead>
+          <tbody id="preview-body">
+            <tr><td class="empty">Таблица пуста, пока не выбран файл.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section aria-labelledby="stats-title">
+      <div class="section-head">
+        <h2 id="stats-title">Аналитика</h2>
+      </div>
+      <div class="stats" id="stats">
+        <article class="empty">Числовые и категориальные сводки появятся после загрузки.</article>
+      </div>
+    </section>
+
+    <section aria-labelledby="charts-title">
+      <div class="section-head">
+        <h2 id="charts-title">Графики</h2>
+        <p class="hint">Появятся после загрузки файла</p>
+      </div>
+      <p class="empty" id="charts-placeholder">Гистограмма, столбчатая диаграмма и рассеяние появятся здесь.</p>
+    </section>
+  </main>
+  <script src="script.js"></script>
+</body>
+</html>
