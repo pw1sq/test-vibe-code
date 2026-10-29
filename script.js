@@ -20,6 +20,7 @@ const ui = {
   stats: document.querySelector("#stats"),
   histColumn: document.querySelector("#hist-column"),
   barColumn: document.querySelector("#bar-column"),
+  barType: document.querySelector("#bar-type"),
   scatterX: document.querySelector("#scatter-x"),
   scatterY: document.querySelector("#scatter-y"),
   histMessage: document.querySelector("#hist-message"),
@@ -76,6 +77,9 @@ if (ui.fileInput && ui.dropzone) {
 if (ui.histColumn && ui.barColumn && ui.scatterX && ui.scatterY) {
   ui.histColumn.addEventListener("change", () => renderHistogram());
   ui.barColumn.addEventListener("change", () => renderBar());
+  if (ui.barType) {
+    ui.barType.addEventListener("change", () => renderBar());
+  }
   ui.scatterX.addEventListener("change", () => renderScatter());
   ui.scatterY.addEventListener("change", () => renderScatter());
 }
@@ -788,6 +792,18 @@ let currentDataset = null;
 const charts = { hist: null, bar: null, scatter: null };
 const BAR_LIMIT = 12;
 const BAR_LABEL_LIMIT = 18;
+const BAR_TYPES = {
+  "bar-h": { chart: "bar", axis: "y" },
+  bar: { chart: "bar", axis: "x" },
+  line: { chart: "line" },
+  area: { chart: "line", fill: true },
+  pie: { chart: "pie", legend: true, multi: true },
+  doughnut: { chart: "doughnut", legend: true, multi: true },
+  polarArea: { chart: "polarArea", legend: true, multi: true, radial: true },
+  radar: { chart: "radar", radial: true },
+  scatter: { chart: "scatter", points: true },
+  bubble: { chart: "bubble", points: true },
+};
 function cssVar(name) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
@@ -804,6 +820,9 @@ function syncThemeButton() {
 function applyChartTheme() {
   if (typeof Chart === "undefined") {
     return;
+  }
+  if (typeof ChartDataLabels !== "undefined") {
+    Chart.unregister(ChartDataLabels);
   }
   Chart.defaults.font.family = '"Segoe UI", system-ui, sans-serif';
   Chart.defaults.color = cssVar("--muted");
@@ -946,41 +965,321 @@ function renderBar() {
   if (!showChartCanvas(ui.barMessage, ui.barCanvas)) {
     return;
   }
+  const labels = summary.top.map(([value]) => value);
+  const counts = summary.top.map(([, count]) => count);
+  const kind = barChartKind();
   const title = summary.unique > summary.top.length
     ? `Частоты: ${column.name} (топ-${summary.top.length} из ${summary.unique})`
     : `Частоты: ${column.name}`;
-  const options = chartOptions(title, "Количество", column.name, "x");
-  options.indexAxis = "y";
-  options.scales.y.ticks.callback = function shortenTick(value) {
-    return shortenLabel(this.getLabelForValue(value), BAR_LABEL_LIMIT);
-  };
-  // Подпись оси рисуется слева от названий. Без запаса длинные подписи заходят на неё.
-  options.scales.y.afterFit = (scale) => {
-    scale.width += 28;
-  };
-  options.plugins.tooltip = {
-    callbacks: {
-      title(items) {
-        return items[0] ? items[0].label : "";
-      },
-      label(item) {
-        return `Количество: ${item.parsed.x}`;
-      },
-    },
-  };
+  const frame = ui.barCanvas.parentElement;
+  frame.classList.toggle("with-legend", Boolean(kind.legend));
+  frame.style.height = kind.legend ? `${200 + labels.length * 22}px` : "";
   mountChart("bar", ui.barCanvas, {
-    type: "bar",
-    data: {
-      labels: summary.top.map(([value]) => value),
+    type: kind.chart,
+    plugins: typeof ChartDataLabels === "undefined" ? [] : [ChartDataLabels],
+    data: categoryChartData(kind, labels, counts),
+    options: categoryChartOptions(kind, title, column.name, labels),
+  });
+}
+
+function barChartKind() {
+  const value = ui.barType && ui.barType.value;
+  return BAR_TYPES[value] || BAR_TYPES["bar-h"];
+}
+
+function categoryChartData(kind, labels, counts) {
+  const percentText = percentTexts(counts);
+  if (kind.points) {
+    const max = Math.max(...counts);
+    const room = Math.max(5, Math.min(14, 72 / Math.max(counts.length, 1)));
+    return {
       datasets: [{
-        data: summary.top.map(([, count]) => count),
+        data: counts.map((count, index) => {
+          const point = { x: index, y: count, label: labels[index] };
+          if (kind.chart === "bubble") {
+            point.r = 3 + (count / max) * room;
+          }
+          return point;
+        }),
+        percentText,
         backgroundColor: cssVar("--chart-fill"),
         borderColor: cssVar("--chart-border"),
         borderWidth: 1,
       }],
+    };
+  }
+  return {
+    labels,
+    datasets: [{
+      data: counts,
+      percentText,
+      backgroundColor: kind.multi ? sliceColors(counts.length) : cssVar("--chart-fill"),
+      borderColor: kind.multi ? cssVar("--surface") : cssVar("--chart-border"),
+      borderWidth: kind.chart === "line" ? 2 : 1,
+      pointBackgroundColor: cssVar("--chart-border"),
+      pointRadius: kind.chart === "line" ? 3 : undefined,
+      fill: Boolean(kind.fill),
+      tension: kind.chart === "line" ? 0.3 : 0,
+    }],
+  };
+}
+
+function percentTexts(counts) {
+  const total = counts.reduce((sum, count) => sum + count, 0);
+  if (!total) {
+    return counts.map(() => "0%");
+  }
+  const exact = counts.map((count) => (count * 100) / total);
+  const whole = exact.map((value) => Math.floor(value));
+  let left = 100 - whole.reduce((sum, value) => sum + value, 0);
+  exact
+    .map((value, index) => ({ index, rest: value - whole[index] }))
+    .sort((a, b) => b.rest - a.rest || a.index - b.index)
+    .forEach((item) => {
+      if (left > 0) {
+        whole[item.index] += 1;
+        left -= 1;
+      }
+    });
+  return whole.map((value, index) => (value === 0 && exact[index] > 0 ? "<1%" : `${value}%`));
+}
+
+function percentLayout(kind) {
+  if (kind.chart === "pie" || kind.chart === "doughnut") {
+    return { padding: 8 };
+  }
+  if (kind.chart === "radar") {
+    return { padding: 18 };
+  }
+  if (kind.chart === "polarArea") {
+    return { padding: 8 };
+  }
+  if (kind.axis === "y") {
+    return { padding: { right: 40 } };
+  }
+  return { padding: { top: 18 } };
+}
+
+function percentLabelOptions(kind) {
+  let anchor = "end";
+  let align = "end";
+  let offset = 4;
+  if (kind.chart === "pie" || kind.chart === "doughnut" || kind.chart === "polarArea") {
+    anchor = "center";
+    align = "center";
+    offset = 0;
+  } else if (kind.axis === "y") {
+    align = "right";
+    offset = 6;
+  } else if (kind.chart === "bar") {
+    align = "top";
+    offset = 2;
+  } else if (kind.chart === "radar") {
+    anchor = "center";
+    align = "start";
+    offset = 16;
+  } else if (kind.chart === "line" || kind.points) {
+    anchor = "center";
+    align = "top";
+    offset = kind.points ? 10 : 8;
+  }
+  return {
+    color: cssVar("--ink"),
+    backgroundColor: cssVar("--surface"),
+    borderRadius: 4,
+    padding: { top: 2, right: 4, bottom: 2, left: 4 },
+    font: { size: 11, weight: 600 },
+    display: kind.chart !== "radar",
+    clamp: true,
+    clip: false,
+    anchor,
+    align,
+    offset,
+    formatter(_value, context) {
+      const texts = context.dataset.percentText || [];
+      return texts[context.dataIndex] || "";
     },
-    options,
+  };
+}
+
+function categoryChartOptions(kind, title, columnName, labels) {
+  const options = {
+    responsive: true,
+    maintainAspectRatio: false,
+    layout: percentLayout(kind),
+    plugins: {
+      legend: legendConfig(kind),
+      datalabels: percentLabelOptions(kind),
+      title: {
+        display: true,
+        text: title,
+        color: cssVar("--ink"),
+        font: { size: 14, weight: 600 },
+        padding: { bottom: kind.chart === "bubble" ? 20 : 10 },
+      },
+      tooltip: {
+        callbacks: {
+          title(items) {
+            const item = items[0];
+            if (!item) {
+              return "";
+            }
+            return item.raw && item.raw.label ? item.raw.label : item.label;
+          },
+          label(item) {
+            const count = categoryCount(item, kind);
+            const percent = item.dataset.percentText && item.dataset.percentText[item.dataIndex];
+            return percent ? `Количество: ${count} (${percent})` : `Количество: ${count}`;
+          },
+        },
+      },
+    },
+  };
+  if (kind.legend && !kind.radial) {
+    return options;
+  }
+  if (kind.radial) {
+    options.scales = {
+      r: {
+        beginAtZero: true,
+        grid: { color: cssVar("--line") },
+        angleLines: { color: cssVar("--line") },
+        ticks: {
+          color: cssVar("--muted"),
+          backdropColor: "transparent",
+          precision: 0,
+        },
+      },
+    };
+    if (kind.chart === "radar") {
+      options.scales.r.pointLabels = {
+        color: cssVar("--muted"),
+        callback(value, index) {
+          const dataset = this.chart.data.datasets[0] || {};
+          const percent = (dataset.percentText || [])[index] || "";
+          return `${shortenLabel(value, BAR_LABEL_LIMIT)} ${percent}`.trim();
+        },
+      };
+    }
+    return options;
+  }
+  const countOnX = kind.axis === "y";
+  options.scales = {
+    x: axisScale(countOnX ? "Количество" : columnName, countOnX),
+    y: axisScale(countOnX ? columnName : "Количество", !countOnX),
+  };
+  if (countOnX) {
+    options.indexAxis = "y";
+    options.scales.y.ticks.callback = function shortenTick(value) {
+      return shortenLabel(this.getLabelForValue(value), BAR_LABEL_LIMIT);
+    };
+    // Подпись оси рисуется слева от названий. Без запаса длинные подписи заходят на неё.
+    options.scales.y.afterFit = (scale) => {
+      scale.width += 28;
+    };
+    return options;
+  }
+  if (kind.chart === "bubble") {
+    options.scales.y.grace = "20%";
+    options.scales.x.grace = "18%";
+  }
+  if (kind.points) {
+    options.scales.x.beginAtZero = false;
+    options.scales.x.ticks.precision = 0;
+    options.scales.x.ticks.stepSize = 1;
+    options.scales.x.ticks.callback = (value) => {
+      const label = labels[value];
+      return label ? shortenLabel(label, BAR_LABEL_LIMIT) : "";
+    };
+  } else {
+    options.scales.x.ticks.callback = function shortenTick(value) {
+      return shortenLabel(this.getLabelForValue(value), BAR_LABEL_LIMIT);
+    };
+  }
+  options.scales.x.ticks.maxRotation = 0;
+  options.scales.x.ticks.autoSkip = true;
+  return options;
+}
+
+function categoryCount(item, kind) {
+  if (kind.points) {
+    return item.parsed.y;
+  }
+  if (kind.radial) {
+    return item.parsed.r;
+  }
+  if (kind.legend) {
+    return item.raw;
+  }
+  return kind.axis === "y" ? item.parsed.x : item.parsed.y;
+}
+
+function legendConfig(kind) {
+  if (!kind.legend) {
+    return { display: false };
+  }
+  return {
+    display: true,
+    position: "bottom",
+    labels: {
+      color: cssVar("--muted"),
+      boxWidth: 10,
+      padding: 8,
+      font: { size: 11 },
+      generateLabels(chart) {
+        const dataset = chart.data.datasets[0] || {};
+        const colors = dataset.backgroundColor;
+        const percents = dataset.percentText || [];
+        return (chart.data.labels || []).map((label, index) => ({
+          text: `${shortenLabel(label, BAR_LABEL_LIMIT)} ${percents[index] || ""}`.trim(),
+          fillStyle: Array.isArray(colors) ? colors[index] : colors,
+          strokeStyle: Array.isArray(dataset.borderColor) ? dataset.borderColor[index] : dataset.borderColor,
+          fontColor: cssVar("--muted"),
+          hidden: chart.getDataVisibility(index) === false,
+          index,
+          datasetIndex: 0,
+        }));
+      },
+    },
+  };
+}
+
+function sliceColors(count) {
+  const green = parseCssColor(cssVar("--chart-border"));
+  const ink = parseCssColor(cssVar("--ink"));
+  const muted = parseCssColor(cssVar("--muted"));
+  const line = parseCssColor(cssVar("--line"));
+  const mixes = [
+    [green, ink, 0],
+    [green, ink, 0.42],
+    [green, muted, 0.35],
+    [green, ink, 0.7],
+    [muted, green, 0.3],
+    [green, line, 0.45],
+    [ink, green, 0.32],
+    [green, muted, 0.62],
+    [muted, ink, 0.15],
+    [green, ink, 0.18],
+    [line, green, 0.5],
+    [ink, muted, 0.2],
+  ];
+  return Array.from({ length: count }, (_, index) => {
+    const [from, to, amount] = mixes[index % mixes.length];
+    const rgb = from.map((channel, channelIndex) => Math.round(channel + (to[channelIndex] - channel) * amount));
+    return `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
   });
+}
+
+function parseCssColor(value) {
+  const hex = String(value).trim();
+  if (/^#[0-9a-fA-F]{6}$/.test(hex)) {
+    return [
+      parseInt(hex.slice(1, 3), 16),
+      parseInt(hex.slice(3, 5), 16),
+      parseInt(hex.slice(5, 7), 16),
+    ];
+  }
+  return [15, 110, 86];
 }
 
 function shortenLabel(text, limit) {
@@ -1066,6 +1365,8 @@ function showChartMessage(message, canvas, text) {
   message.hidden = false;
   message.textContent = text;
   canvas.parentElement.hidden = true;
+  canvas.parentElement.classList.remove("with-legend");
+  canvas.parentElement.style.height = "";
 }
 
 function showChartCanvas(message, canvas) {

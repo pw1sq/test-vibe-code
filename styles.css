@@ -349,12 +349,38 @@ th {
   min-width: 0;
 }
 
+.chart-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.chart-heading span {
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.chart-heading select {
+  width: auto;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0;
+  flex: 1 1 9.5rem;
+}
+
 .chart-frame {
   position: relative;
   width: 100%;
   max-width: 100%;
   height: 260px;
   overflow: hidden;
+}
+
+.chart-frame.with-legend {
+  height: 340px;
 }
 
 .stats-group {

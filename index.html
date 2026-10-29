@@ -106,8 +106,23 @@
           </div>
         </div>
         <div class="chart-card">
-          <label>Категориальный столбец
-            <select id="bar-column" disabled>
+          <div class="chart-heading">
+            <span id="bar-column-label">Категориальный столбец</span>
+            <select id="bar-type" aria-label="Тип диаграммы">
+              <option value="bar-h">Горизонтальные столбцы</option>
+              <option value="bar">Столбцы</option>
+              <option value="line">Линия</option>
+              <option value="area">Область</option>
+              <option value="pie">Круговая</option>
+              <option value="doughnut">Кольцевая</option>
+              <option value="polarArea">Полярная</option>
+              <option value="radar">Лепестковая</option>
+              <option value="scatter">Точечная</option>
+              <option value="bubble">Пузырьковая</option>
+            </select>
+          </div>
+          <label>
+            <select id="bar-column" aria-labelledby="bar-column-label" disabled>
               <option>Нет категориальных столбцов</option>
             </select>
           </label>
@@ -136,6 +151,7 @@
     </section>
   </main>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
